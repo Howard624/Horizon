@@ -1,6 +1,7 @@
 """Main orchestrator coordinating the entire workflow."""
 
 import asyncio
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -48,6 +49,24 @@ _TRACKING_QUERY_PARAMETERS = {
     "twclid",
     "vero_id",
 }
+
+
+def _current_report_date() -> str:
+    """Return the report date, allowing a validated workflow override."""
+    override = os.getenv("HORIZON_REPORT_DATE")
+    if not override:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    try:
+        parsed = datetime.strptime(override, "%Y-%m-%d")
+    except ValueError as exc:
+        raise ValueError(
+            "HORIZON_REPORT_DATE must use YYYY-MM-DD format"
+        ) from exc
+
+    if parsed.strftime("%Y-%m-%d") != override:
+        raise ValueError("HORIZON_REPORT_DATE must use YYYY-MM-DD format")
+    return override
 
 
 def _deduplication_url_key(url: str) -> tuple[str, str, str, str, Optional[int], str, str]:
@@ -293,7 +312,7 @@ class HorizonOrchestrator:
             await self.enrich_items(important_items)
 
             # 7. Generate and save daily summaries for each configured language
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            today = _current_report_date()
             for lang in self.config.ai.languages:
                 summarizer = DailySummarizer(
                     profile_names=self.profiles.names,
@@ -395,7 +414,7 @@ class HorizonOrchestrator:
             # Send webhook failure notification if configured
             if self.webhook_notifier:
                 await self.webhook_notifier.send_failure(
-                    date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    date=_current_report_date(),
                     error_message=str(e),
                 )
 

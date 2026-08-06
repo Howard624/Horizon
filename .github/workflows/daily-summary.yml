@@ -32,15 +32,16 @@ jobs:
       - name: Prepare AI blogger config
         run: cp data/config.ai-blogger.json data/config.json
 
+      - name: Set Brisbane report date
+        run: echo "REPORT_DATE=$(TZ=Australia/Brisbane date +'%Y-%m-%d')" >> "$GITHUB_ENV"
+
       - name: Run Horizon
         env:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          HORIZON_REPORT_DATE: ${{ env.REPORT_DATE }}
         run: uv run horizon --hours 24
-
-      - name: Set report date
-        run: echo "DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
@@ -50,4 +51,4 @@ jobs:
           keep_files: true
           publish_branch: gh-pages
           enable_jekyll: true
-          commit_message: "Daily AI Radar: ${{ env.DATE }}"
+          commit_message: "Daily AI Radar: ${{ env.REPORT_DATE }}"
